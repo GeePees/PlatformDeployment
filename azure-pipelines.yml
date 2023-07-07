@@ -1,0 +1,48 @@
+trigger:
+- master
+
+resources:
+  repositories:
+  - repository: MyDataApp
+    type: git
+    name: MyDataApp
+
+pool:
+  vmImage: 'windows-latest'
+
+variables:
+  solution: '**/*.sln'
+  buildPlatform: 'Any CPU'
+  buildConfiguration: 'Release'
+
+jobs:
+  - job:  
+    steps:
+      - checkout: MyDataApp
+
+      - task: UseDotNet@2
+        displayName: 'Install .NET Core SDK'
+        inputs:
+          version: '6.0.x'
+
+      - task: DotNetCoreCLI@2
+        displayName: Restore
+        inputs:
+          command: restore
+          projects: '$(solution)'
+
+      - task: VSBuild@1
+        inputs:
+          solution: '$(solution)'
+          msbuildArgs: '/p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:DesktopBuildPackageLocation="$(build.artifactStagingDirectory)\WebApp.zip" /p:DeployIisAppPath="Default Web Site"'
+          platform: '$(buildPlatform)'
+          configuration: '$(buildConfiguration)'
+
+      - task: AzureRmWebAppDeployment@4
+        displayName: Publish
+        inputs:
+          ConnectionType: 'AzureRM'
+          azureSubscription: 'Subscription Pivi(5c480dd3-0ff0-438d-b71f-658341ae1f77)'
+          appType: 'webApp'
+          WebAppName: 'V-Pivi-ServiceProvider'
+          packageForLinux: '$(build.artifactStagingDirectory)\WebApp.zip'
